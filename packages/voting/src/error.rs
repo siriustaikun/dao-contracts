@@ -1,22 +1,21 @@
 use std::u64;
 
 use cosmwasm_std::StdError;
-use indexable_hooks::HookError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum ContractError {
+pub enum VotingError {
     #[error("{0}")]
     Std(#[from] StdError),
-
-    #[error("{0}")]
-    HookError(#[from] HookError),
 
     #[error("Unauthorized")]
     Unauthorized {},
 
-    #[error("{0}")]
-    ThresholdError(#[from] voting::threshold::ThresholdError),
+    #[error("Required threshold cannot be zero")]
+    ZeroThreshold {},
+
+    #[error("Not possible to reach required (passing) threshold")]
+    UnreachableThreshold {},
 
     #[error("Suggested proposal expiration is larger than the maximum proposal duration")]
     InvalidExpiration {},
@@ -47,7 +46,4 @@ pub enum ContractError {
 
     #[error("Only rejected or expired proposals may be closed.")]
     WrongCloseStatus {},
-
-    #[error("The DAO is currently inactive, you cannot create proposals")]
-    InactiveDao {},
 }

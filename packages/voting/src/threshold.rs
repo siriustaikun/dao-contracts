@@ -82,7 +82,7 @@ fn validate_percentage(percent: &PercentageThreshold) -> Result<(), ThresholdErr
 }
 
 /// Asserts that a quorum <= 1. Quorums may be zero.
-fn validate_quorum(quorum: &PercentageThreshold) -> Result<(), ThresholdError> {
+pub fn validate_quorum(quorum: &PercentageThreshold) -> Result<(), ThresholdError> {
     if let PercentageThreshold::Percent(quorum) = quorum {
         if *quorum > Decimal::one() {
             Err(ThresholdError::UnreachableThreshold {})

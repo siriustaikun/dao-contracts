@@ -3,6 +3,7 @@ use std::u64;
 use cosmwasm_std::StdError;
 use indexable_hooks::HookError;
 use thiserror::Error;
+use voting::threshold::ThresholdError;
 
 #[derive(Error, Debug)]
 pub enum ContractError {
@@ -16,7 +17,7 @@ pub enum ContractError {
     Unauthorized {},
 
     #[error("{0}")]
-    ThresholdError(#[from] voting::threshold::ThresholdError),
+    ThresholdError(#[from] ThresholdError),
 
     #[error("Suggested proposal expiration is larger than the maximum proposal duration")]
     InvalidExpiration {},
@@ -48,6 +49,12 @@ pub enum ContractError {
     #[error("Only rejected or expired proposals may be closed.")]
     WrongCloseStatus {},
 
-    #[error("The DAO is currently inactive, you cannot create proposals")]
+    #[error("The DAO is currently inactive, you cannot create proposals.")]
     InactiveDao {},
+
+    #[error("Must have at least three choices, one of them being none of the above.")]
+    WrongNumberOfChoices {},
+
+    #[error("Must have one 'none of the above' option.")]
+    NoneOptionRequired {},
 }

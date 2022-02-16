@@ -1708,7 +1708,7 @@ fn test_query_list_proposals() {
 
     let expected = ProposalResponse {
         id: 1,
-        proposal: Proposal {
+        proposal: SingleChoiceProposal {
             title: "Text proposal 1.".to_string(),
             description: "This is a simple text proposal".to_string(),
             proposer: Addr::unchecked(CREATOR_ADDR),
@@ -1751,7 +1751,7 @@ fn test_query_list_proposals() {
 
     let expected = ProposalResponse {
         id: 4,
-        proposal: Proposal {
+        proposal: SingleChoiceProposal {
             title: "Text proposal 4.".to_string(),
             description: "This is a simple text proposal".to_string(),
             proposer: Addr::unchecked(CREATOR_ADDR),

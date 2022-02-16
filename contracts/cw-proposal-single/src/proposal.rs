@@ -1,16 +1,18 @@
+use crate::query::ProposalResponse;
+use crate::state::PROPOSAL_COUNT;
 use cosmwasm_std::{Addr, BlockInfo, CosmosMsg, Decimal, Empty, StdResult, Storage, Uint128};
 use cw_utils::Expiration;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use voting::{compare_vote_count, PercentageThreshold, Status, Threshold, VoteCmp, Votes};
-
-use crate::{
-    query::ProposalResponse,
-    state::{CheckedDepositInfo, PROPOSAL_COUNT},
+use voting::deposit::CheckedDepositInfo;
+use voting::proposal::{Proposal, Status};
+use voting::threshold::{PercentageThreshold, Threshold};
+use voting::voting::{
+    compare_vote_count, does_vote_count_fail, does_vote_count_pass, VoteCmp, Votes,
 };
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-pub struct Proposal {
+pub struct SingleChoiceProposal {
     pub title: String,
     pub description: String,
     pub proposer: Addr,
@@ -31,53 +33,25 @@ pub struct Proposal {
     pub deposit_info: Option<CheckedDepositInfo>,
 }
 
+impl Proposal for SingleChoiceProposal {
+    fn proposer(&self) -> Addr {
+        return self.proposer.clone();
+    }
+    fn deposit_info(&self) -> Option<CheckedDepositInfo> {
+        return self.deposit_info.clone();
+    }
+    fn status(&self) -> Status {
+        return self.status;
+    }
+}
+
 pub fn advance_proposal_id(store: &mut dyn Storage) -> StdResult<u64> {
     let id: u64 = PROPOSAL_COUNT.may_load(store)?.unwrap_or_default() + 1;
     PROPOSAL_COUNT.save(store, &id)?;
     Ok(id)
 }
 
-pub fn does_vote_count_pass(
-    yes_votes: Uint128,
-    options: Uint128,
-    percent: PercentageThreshold,
-) -> bool {
-    // Don't pass proposals if all the votes are abstain.
-    if options.is_zero() {
-        return false;
-    }
-    match percent {
-        PercentageThreshold::Majority {} => yes_votes.full_mul(2u64) > options.into(),
-        PercentageThreshold::Percent(percent) => {
-            compare_vote_count(yes_votes, VoteCmp::Geq, options, percent)
-        }
-    }
-}
-
-pub fn does_vote_count_fail(
-    no_votes: Uint128,
-    options: Uint128,
-    percent: PercentageThreshold,
-) -> bool {
-    // All abstain votes should result in a rejected proposal.
-    if options.is_zero() {
-        return true;
-    }
-    match percent {
-        PercentageThreshold::Majority {} => {
-            // Fails if no votes have >= half of all votes.
-            no_votes.full_mul(2u64) >= options.into()
-        }
-        PercentageThreshold::Percent(percent) => compare_vote_count(
-            no_votes,
-            VoteCmp::Greater,
-            options,
-            Decimal::one() - percent,
-        ),
-    }
-}
-
-impl Proposal {
+impl SingleChoiceProposal {
     /// Consumes the proposal and returns a version which may be used
     /// in a query response. The difference being that proposal
     /// statuses are only updated on vote, execute, and close
@@ -249,13 +223,13 @@ mod test {
         votes: Votes,
         total_power: Uint128,
         is_expired: bool,
-    ) -> (Proposal, BlockInfo) {
+    ) -> (SingleChoiceProposal, BlockInfo) {
         let block = mock_env().block;
         let expiration = match is_expired {
             true => Expiration::AtHeight(block.height - 5),
             false => Expiration::AtHeight(block.height + 100),
         };
-        let prop = Proposal {
+        let prop = SingleChoiceProposal {
             title: "Demo".to_string(),
             description: "Info".to_string(),
             proposer: Addr::unchecked("test"),

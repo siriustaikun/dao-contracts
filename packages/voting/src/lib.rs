@@ -1,5 +1,5 @@
-pub mod status;
+pub mod deposit;
+pub mod error;
+pub mod proposal;
 pub mod threshold;
 pub mod voting;
-
-pub use crate::{status::*, threshold::*, voting::*};

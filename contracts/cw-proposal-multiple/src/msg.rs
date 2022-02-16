@@ -1,17 +1,25 @@
-use cosmwasm_std::{CosmosMsg, Empty};
-use cw_utils::Duration;
+use cosmwasm_std::{CosmosMsg, Decimal, Empty, Uint128};
+use cw_core_macros::voting_query;
+use cw_utils::{Duration, Expiration};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use voting::{
+    deposit::DepositInfo,
+    threshold::Threshold,
+    voting::{MultipleChoiceVote, MultipleChoiceVotes},
+};
 
+use crate::{
+    state::{MultipleChoiceOption, MultipleChoiceOptionType},
+    voting_strategy::VotingStrategy,
+};
 use cw_core_macros::govmod_query;
-use voting::{deposit::DepositInfo, threshold::Threshold, voting::Vote};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct InstantiateMsg {
-    /// The threshold a proposal must reach to complete.
-    pub threshold: Threshold,
-    /// The default maximum amount of time a proposal may be voted on
-    /// before expiring.
+    /// Voting params configuration
+    pub voting_strategy: VotingStrategy,
+    /// The amount of time a proposal can be voted on before expiring
     pub max_voting_period: Duration,
     /// If set to true only members may execute passed
     /// proposals. Otherwise, any address may execute a passed
@@ -21,6 +29,10 @@ pub struct InstantiateMsg {
     /// proposal. None if there is no deposit requirement, Some
     /// otherwise.
     pub deposit_info: Option<DepositInfo>,
+    /// The existing governance token address
+    pub gov_token_address: String,
+    /// The parent dao contract address
+    pub parent_dao_contract_address: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -32,9 +44,8 @@ pub enum ExecuteMsg {
         title: String,
         /// A description of the proposal.
         description: String,
-        /// The messages that should be executed in response to this
-        /// proposal passing.
-        msgs: Vec<CosmosMsg<Empty>>,
+        /// The multiple choices.
+        choices: Vec<MultipleChoiceOption>,
     },
     /// Votes on a proposal. Voting power is determined by the DAO's
     /// voting power module.
@@ -42,7 +53,7 @@ pub enum ExecuteMsg {
         /// The ID of the proposal to vote on.
         proposal_id: u64,
         /// The senders position on the proposal.
-        vote: Vote,
+        vote: MultipleChoiceVote,
     },
     /// Causes the messages associated with a passed proposal to be
     /// executed by the DAO.
@@ -59,9 +70,9 @@ pub enum ExecuteMsg {
     },
     /// Updates the governance module's config.
     UpdateConfig {
-        /// The new proposal passing threshold. This will only apply
+        /// The new proposal voting strategy. This will only apply
         /// to proposals created after the config update.
-        threshold: Threshold,
+        voting_strategy: VotingStrategy,
         /// The default maximum amount of time a proposal may be voted
         /// on before expiring. This will only apply to proposals
         /// created after the config update.
@@ -122,4 +133,10 @@ pub enum QueryMsg {
     },
     ProposalHooks {},
     VoteHooks {},
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct VoteMsg {
+    pub proposal_id: u64,
+    pub vote: MultipleChoiceVote,
 }

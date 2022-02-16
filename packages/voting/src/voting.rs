@@ -1,6 +1,12 @@
-use cosmwasm_std::{Decimal, Uint128, Uint256};
+use core::num;
+use std::collections::HashMap;
+
+use cosmwasm_std::{Addr, Decimal, Deps, StdResult, Uint128, Uint256};
+use cw_core_interface::voting;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+use crate::{deposit::DepositInfo, threshold::PercentageThreshold};
 
 // We multiply by this when calculating needed_votes in order to round
 // up properly.
@@ -24,6 +30,43 @@ pub enum Vote {
     /// Marks participation but does not count towards the ratio of
     /// support / opposed.
     Abstain,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, JsonSchema, Debug)]
+pub struct MultipleChoiceVote {
+    // A vote indicates which option the user has selected.
+    pub option_id: u32,
+}
+
+impl std::fmt::Display for MultipleChoiceVote {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.option_id)
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+pub struct MultipleChoiceVotes {
+    // Vote counts is a vector of integers indicating the vote weight for each option
+    // (the index corresponds to the option).
+    pub vote_weights: Vec<Uint128>,
+    // pub vote_counts: Map<&MultipleChoiceOption, Uint128>,
+}
+
+impl MultipleChoiceVotes {
+    /// Sum of all vote weights
+    pub fn total(&self) -> Uint128 {
+        self.vote_weights.iter().sum()
+    }
+
+    pub fn add_vote(&mut self, vote: MultipleChoiceVote, weight: Uint128) {
+        self.vote_weights[vote.option_id as usize] += weight;
+    }
+
+    pub fn zero(num_choices: usize) -> Self {
+        Self {
+            vote_weights: Vec::with_capacity(num_choices),
+        }
+    }
 }
 
 pub enum VoteCmp {
@@ -83,6 +126,46 @@ pub fn compare_vote_count(
     }
 }
 
+pub fn does_vote_count_pass(
+    yes_votes: Uint128,
+    options: Uint128,
+    percent: PercentageThreshold,
+) -> bool {
+    // Don't pass proposals if all the votes are abstain.
+    if options.is_zero() {
+        return false;
+    }
+    match percent {
+        PercentageThreshold::Majority {} => yes_votes.full_mul(2u64) > options.into(),
+        PercentageThreshold::Percent(percent) => {
+            compare_vote_count(yes_votes, VoteCmp::Geq, options, percent)
+        }
+    }
+}
+
+pub fn does_vote_count_fail(
+    no_votes: Uint128,
+    options: Uint128,
+    percent: PercentageThreshold,
+) -> bool {
+    // All abstain votes should result in a rejected proposal.
+    if options.is_zero() {
+        return true;
+    }
+    match percent {
+        PercentageThreshold::Majority {} => {
+            // Fails if no votes have >= half of all votes.
+            no_votes.full_mul(2u64) >= options.into()
+        }
+        PercentageThreshold::Percent(percent) => compare_vote_count(
+            no_votes,
+            VoteCmp::Greater,
+            options,
+            Decimal::one() - percent,
+        ),
+    }
+}
+
 impl Votes {
     /// Constructs an zero'd out votes struct.
     pub fn zero() -> Self {
@@ -133,6 +216,29 @@ impl std::fmt::Display for Vote {
             Vote::Abstain => write!(f, "abstain"),
         }
     }
+}
+
+pub fn get_voting_power(
+    deps: Deps,
+    address: Addr,
+    dao: Addr,
+    height: Option<u64>,
+) -> StdResult<Uint128> {
+    let response: voting::VotingPowerAtHeightResponse = deps.querier.query_wasm_smart(
+        dao,
+        &voting::Query::VotingPowerAtHeight {
+            address: address.to_string(),
+            height,
+        },
+    )?;
+    Ok(response.power)
+}
+
+pub fn get_total_power(deps: Deps, dao: Addr, height: Option<u64>) -> StdResult<Uint128> {
+    let response: voting::TotalPowerAtHeightResponse = deps
+        .querier
+        .query_wasm_smart(dao, &voting::Query::TotalPowerAtHeight { height })?;
+    Ok(response.power)
 }
 
 #[cfg(test)]
