@@ -1,12 +1,12 @@
-use core::num;
-use std::collections::HashMap;
+
+
 
 use cosmwasm_std::{Addr, Decimal, Deps, StdResult, Uint128, Uint256};
 use cw_core_interface::voting;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{deposit::DepositInfo, threshold::PercentageThreshold};
+use crate::{threshold::PercentageThreshold};
 
 // We multiply by this when calculating needed_votes in order to round
 // up properly.

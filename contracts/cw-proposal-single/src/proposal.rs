@@ -8,7 +8,7 @@ use voting::deposit::CheckedDepositInfo;
 use voting::proposal::{Proposal, Status};
 use voting::threshold::{PercentageThreshold, Threshold};
 use voting::voting::{
-    compare_vote_count, does_vote_count_fail, does_vote_count_pass, VoteCmp, Votes,
+    does_vote_count_fail, does_vote_count_pass, Votes,
 };
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]

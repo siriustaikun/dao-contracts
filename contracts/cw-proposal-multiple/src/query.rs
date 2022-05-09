@@ -1,13 +1,13 @@
 use crate::{
     proposal::MultipleChoiceProposal,
-    state::{Config, MultipleChoiceOptionType, VoteInfo},
+    state::{Config, VoteInfo},
 };
-use cosmwasm_std::{Addr, Decimal, Empty, Uint128};
+use cosmwasm_std::{Decimal, Uint128};
 use cw3::Status;
-use cw_utils::Expiration;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::fmt;
+
 use voting::voting::MultipleChoiceVotes;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]

@@ -1,16 +1,15 @@
-use cosmwasm_std::{CosmosMsg, Decimal, Empty, Uint128};
-use cw_core_macros::voting_query;
-use cw_utils::{Duration, Expiration};
+
+
+use cw_utils::{Duration};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use voting::{
     deposit::DepositInfo,
-    threshold::Threshold,
-    voting::{MultipleChoiceVote, MultipleChoiceVotes},
+    voting::{MultipleChoiceVote},
 };
 
 use crate::{
-    state::{MultipleChoiceOption, MultipleChoiceOptionType},
+    state::{MultipleChoiceOption},
     voting_strategy::VotingStrategy,
 };
 use cw_core_macros::govmod_query;

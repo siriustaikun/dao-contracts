@@ -1,34 +1,33 @@
 use cosmwasm_std::{
-    entry_point, to_binary, Addr, Binary, CosmosMsg, Decimal, Deps, DepsMut, Empty, Env,
-    MessageInfo, Order, Reply, Response, StdResult, Storage, Uint128, WasmMsg,
+    entry_point, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env,
+    MessageInfo, Reply, Response, StdResult, Storage, WasmMsg,
 };
 
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
-use cw_utils::{maybe_addr, Duration, Expiration};
+use cw_utils::{Duration};
 use indexable_hooks::Hooks;
 use proposal_hooks::{new_proposal_hooks, proposal_status_changed_hooks};
-use schemars::_serde_json::Deserializer;
+
 use vote_hooks::new_vote_hooks;
 use voting::{
     deposit::{get_deposit_msg, get_return_deposit_msg, DepositInfo},
     proposal::{Status, DEFAULT_LIMIT, MAX_PROPOSAL_SIZE},
-    threshold::Threshold,
     voting::{get_total_power, get_voting_power, MultipleChoiceVote, MultipleChoiceVotes},
 };
 
 use crate::{
-    msg::{ExecuteMsg, InstantiateMsg, QueryMsg, VoteMsg},
+    msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
     proposal::MultipleChoiceProposal,
     query::{
-        ConfigResponse, ProposalListResponse, ProposalResponse, ThresholdResponse,
-        VoteListResponse, VoteResponse, VoteTallyResponse, VoterResponse,
+        ProposalListResponse, ProposalResponse,
+        VoteListResponse, VoteResponse,
     },
     state::{
-        next_id, Config, MultipleChoiceOption, MultipleChoiceOptionType, CONFIG, PROPOSAL_COUNT,
+        Config, MultipleChoiceOption, MultipleChoiceOptionType, CONFIG, PROPOSAL_COUNT,
         PROPOSAL_HOOKS, VOTE_HOOKS,
     },
-    voting_strategy::{self, VotingStrategy},
+    voting_strategy::{VotingStrategy},
     ContractError,
 };
 

@@ -3,8 +3,7 @@ use cw20::Cw20Coin;
 use cw_core::{msg::ModuleInstantiateInfo, query::DumpStateResponse};
 use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 use cw_utils::Duration;
-
-use voting::Threshold;
+use voting::threshold::Threshold;
 
 use crate::msg::InstantiateMsg;
 
@@ -104,8 +103,8 @@ fn instantiate_with_staked_balances_voting() {
             admin: cw_core::msg::Admin::CoreContract {},
             msg: to_binary(&InstantiateMsg {
                 threshold: Threshold::ThresholdQuorum {
-                    threshold: voting::PercentageThreshold::Majority {},
-                    quorum: voting::PercentageThreshold::Percent(Decimal::percent(30)),
+                    threshold: voting::threshold::PercentageThreshold::Majority {},
+                    quorum: voting::threshold::PercentageThreshold::Percent(Decimal::percent(30)),
                 },
                 max_voting_period: Duration::Height(10u64),
                 only_members_execute: true,

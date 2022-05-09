@@ -50,4 +50,4 @@ indexable-hooks = { version = "0.1.0", path = "../../packages/indexable-hooks" }
 
 [dev-dependencies]
 cosmwasm-schema = { version = "1.0.0-beta5" }
-cw-multi-test = {  version = "0.11.1" }
+cw-multi-test = {  version = "0.13" }

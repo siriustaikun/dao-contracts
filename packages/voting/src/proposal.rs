@@ -1,9 +1,9 @@
 use cosmwasm_std::Addr;
-use cw_utils::Duration;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{deposit::CheckedDepositInfo, threshold::Threshold};
+use crate::{deposit::CheckedDepositInfo};
 
 /// Default limit for proposal pagination.
 pub const DEFAULT_LIMIT: u64 = 30;

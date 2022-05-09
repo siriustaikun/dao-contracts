@@ -1,4 +1,4 @@
-use std::{convert::TryInto, ops::Sub};
+use std::{ops::Sub};
 
 use cosmwasm_std::{Addr, BlockInfo, Uint128};
 use cw_utils::Expiration;
@@ -7,10 +7,10 @@ use serde::{Deserialize, Serialize};
 use voting::{
     deposit::CheckedDepositInfo,
     proposal::{Proposal, Status},
-    threshold::{PercentageThreshold, Threshold},
+    threshold::{PercentageThreshold},
     voting::{
-        compare_vote_count, does_vote_count_fail, does_vote_count_pass, MultipleChoiceVote,
-        MultipleChoiceVotes, VoteCmp,
+        does_vote_count_fail, does_vote_count_pass,
+        MultipleChoiceVotes,
     },
 };
 
@@ -174,7 +174,7 @@ impl MultipleChoiceProposal {
             .vote_weights
             .iter()
             .enumerate()
-            .filter(|(idx, x)| self.choices[*idx].option_type == MultipleChoiceOptionType::None)
+            .filter(|(idx, _x)| self.choices[*idx].option_type == MultipleChoiceOptionType::None)
             .count() as u64;
     }
 }

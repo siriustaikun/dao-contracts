@@ -1,15 +1,15 @@
-use std::{convert::TryInto, ops::Mul};
+use std::{convert::TryInto};
 
 use crate::{proposal::MultipleChoiceProposal, voting_strategy::VotingStrategy};
-use cosmwasm_std::{Addr, BlockInfo, CosmosMsg, Empty, StdError, StdResult, Storage, Uint128};
+use cosmwasm_std::{Addr, CosmosMsg, Empty, StdError, StdResult, Storage, Uint128};
 use cw_storage_plus::{Item, Map};
-use cw_utils::{Duration, Expiration};
+use cw_utils::{Duration};
 use indexable_hooks::Hooks;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use voting::{
     deposit::CheckedDepositInfo,
-    voting::{compare_vote_count, MultipleChoiceVote, MultipleChoiceVotes, VoteCmp},
+    voting::{MultipleChoiceVote},
 };
 
 /// The governance module's configuration.
