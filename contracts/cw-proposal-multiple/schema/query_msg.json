@@ -3,20 +3,20 @@
   "title": "QueryMsg",
   "oneOf": [
     {
-      "description": "Return ThresholdResponse",
+      "description": "Gets the governance module's config. Returns `state::Config`.",
       "type": "object",
       "required": [
-        "threshold"
+        "config"
       ],
       "properties": {
-        "threshold": {
+        "config": {
           "type": "object"
         }
       },
       "additionalProperties": false
     },
     {
-      "description": "Returns ProposalResponse",
+      "description": "Gets information about a proposal. Returns `proposals::Proposal`.",
       "type": "object",
       "required": [
         "proposal"
@@ -39,7 +39,6 @@
       "additionalProperties": false
     },
     {
-      "description": "Returns ProposalListResponse",
       "type": "object",
       "required": [
         "list_proposals"
@@ -53,7 +52,7 @@
                 "integer",
                 "null"
               ],
-              "format": "uint32",
+              "format": "uint64",
               "minimum": 0.0
             },
             "start_after": {
@@ -70,7 +69,6 @@
       "additionalProperties": false
     },
     {
-      "description": "Returns ProposalListResponseb",
       "type": "object",
       "required": [
         "reverse_proposals"
@@ -84,7 +82,7 @@
                 "integer",
                 "null"
               ],
-              "format": "uint32",
+              "format": "uint64",
               "minimum": 0.0
             },
             "start_before": {
@@ -101,7 +99,6 @@
       "additionalProperties": false
     },
     {
-      "description": "Returns the number of proposals in the DAO (u64)",
       "type": "object",
       "required": [
         "proposal_count"
@@ -114,19 +111,6 @@
       "additionalProperties": false
     },
     {
-      "type": "object",
-      "required": [
-        "get_config"
-      ],
-      "properties": {
-        "get_config": {
-          "type": "object"
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "description": "Returns VoteResponse",
       "type": "object",
       "required": [
         "vote"
@@ -153,7 +137,6 @@
       "additionalProperties": false
     },
     {
-      "description": "Returns VoteListResponse",
       "type": "object",
       "required": [
         "list_votes"
@@ -170,7 +153,7 @@
                 "integer",
                 "null"
               ],
-              "format": "uint32",
+              "format": "uint64",
               "minimum": 0.0
             },
             "proposal_id": {
@@ -190,45 +173,37 @@
       "additionalProperties": false
     },
     {
-      "description": "Returns information about current tallys for a proposal. Returns type `VoteTallyResponse`.",
       "type": "object",
       "required": [
-        "tally"
+        "proposal_hooks"
       ],
       "properties": {
-        "tally": {
-          "type": "object",
-          "required": [
-            "proposal_id"
-          ],
-          "properties": {
-            "proposal_id": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
-            }
-          }
+        "proposal_hooks": {
+          "type": "object"
         }
       },
       "additionalProperties": false
     },
     {
-      "description": "Returns VoterInfo",
       "type": "object",
       "required": [
-        "voter"
+        "vote_hooks"
       ],
       "properties": {
-        "voter": {
-          "type": "object",
-          "required": [
-            "address"
-          ],
-          "properties": {
-            "address": {
-              "type": "string"
-            }
-          }
+        "vote_hooks": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "info"
+      ],
+      "properties": {
+        "info": {
+          "type": "object"
         }
       },
       "additionalProperties": false

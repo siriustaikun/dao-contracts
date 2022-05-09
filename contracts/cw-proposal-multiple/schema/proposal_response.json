@@ -1,66 +1,20 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ProposalResponse",
-  "description": "Note, if you are storing custom messages in the proposal, the querier needs to know what possible custom message types those are in order to parse the response",
+  "description": "Information about a proposal returned by proposal queries.",
   "type": "object",
   "required": [
-    "deposit_amount",
-    "description",
-    "expires",
     "id",
-    "msgs",
-    "proposer",
-    "start_height",
-    "status",
-    "threshold",
-    "title"
+    "proposal"
   ],
   "properties": {
-    "deposit_amount": {
-      "$ref": "#/definitions/Uint128"
-    },
-    "description": {
-      "type": "string"
-    },
-    "expires": {
-      "$ref": "#/definitions/Expiration"
-    },
     "id": {
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0
     },
-    "msgs": {
-      "type": "array",
-      "items": {
-        "type": "array",
-        "items": {
-          "$ref": "#/definitions/CosmosMsg_for_Empty"
-        }
-      }
-    },
-    "proposer": {
-      "$ref": "#/definitions/Addr"
-    },
-    "start_height": {
-      "description": "The block height the proposal was created at. This can be cross referenced with staked_balance_at_height queries to determine an addresses's voting power for this proposal.",
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0.0
-    },
-    "status": {
-      "$ref": "#/definitions/Status"
-    },
-    "threshold": {
-      "description": "This is the threshold that is applied to this proposal. Both the rules of the voting contract, as well as the total_weight of the voting group may have changed since this time. That means that the generic `Threshold{}` query does not provide valid information for existing proposals.",
-      "allOf": [
-        {
-          "$ref": "#/definitions/ThresholdResponse"
-        }
-      ]
-    },
-    "title": {
-      "type": "string"
+    "proposal": {
+      "$ref": "#/definitions/MultipleChoiceProposal"
     }
   },
   "definitions": {
@@ -128,6 +82,37 @@
     "Binary": {
       "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
       "type": "string"
+    },
+    "CheckedDepositInfo": {
+      "description": "Counterpart to the `DepositInfo` struct which has been processed.",
+      "type": "object",
+      "required": [
+        "deposit",
+        "refund_failed_proposals",
+        "token"
+      ],
+      "properties": {
+        "deposit": {
+          "description": "The number of tokens that must be deposited to create a proposal.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            }
+          ]
+        },
+        "refund_failed_proposals": {
+          "description": "If failed proposals should have their deposits refunded.",
+          "type": "boolean"
+        },
+        "token": {
+          "description": "The address of the cw20 token to be used for proposal deposits.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Addr"
+            }
+          ]
+        }
+      }
     },
     "Coin": {
       "type": "object",
@@ -311,6 +296,152 @@
         }
       ]
     },
+    "MultipleChoiceOption": {
+      "type": "object",
+      "required": [
+        "description",
+        "msgs",
+        "option_type",
+        "vote_count"
+      ],
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "msgs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CosmosMsg_for_Empty"
+          }
+        },
+        "option_type": {
+          "$ref": "#/definitions/MultipleChoiceOptionType"
+        },
+        "vote_count": {
+          "$ref": "#/definitions/Uint128"
+        }
+      }
+    },
+    "MultipleChoiceOptionType": {
+      "type": "string",
+      "enum": [
+        "None",
+        "Standard"
+      ]
+    },
+    "MultipleChoiceProposal": {
+      "type": "object",
+      "required": [
+        "choices",
+        "description",
+        "expiration",
+        "proposer",
+        "start_height",
+        "status",
+        "title",
+        "total_power",
+        "votes",
+        "voting_strategy"
+      ],
+      "properties": {
+        "choices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MultipleChoiceOption"
+          }
+        },
+        "deposit_info": {
+          "description": "Information about the deposit that was sent as part of this proposal. None if no deposit.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/CheckedDepositInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "expiration": {
+          "$ref": "#/definitions/Expiration"
+        },
+        "proposer": {
+          "$ref": "#/definitions/Addr"
+        },
+        "start_height": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "status": {
+          "$ref": "#/definitions/Status"
+        },
+        "title": {
+          "type": "string"
+        },
+        "total_power": {
+          "description": "The total power when the proposal started (used to calculate percentages)",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            }
+          ]
+        },
+        "votes": {
+          "$ref": "#/definitions/MultipleChoiceVotes"
+        },
+        "voting_strategy": {
+          "$ref": "#/definitions/VotingStrategy"
+        }
+      }
+    },
+    "MultipleChoiceVotes": {
+      "type": "object",
+      "required": [
+        "vote_weights"
+      ],
+      "properties": {
+        "vote_weights": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Uint128"
+          }
+        }
+      }
+    },
+    "PercentageThreshold": {
+      "description": "A percentage of voting power that must vote yes for a proposal to pass. An example of why this is needed:\n\nIf a user specifies a 60% passing threshold, and there are 10 voters they likely expect that proposal to pass when there are 6 yes votes. This implies that the condition for passing should be `yes_votes >= total_votes * threshold`.\n\nWith this in mind, how should a user specify that they would like proposals to pass if the majority of voters choose yes? Selecting a 50% passing threshold with those rules doesn't properly cover that case as 5 voters voting yes out of 10 would pass the proposal. Selecting 50.0001% or or some variation of that also does not work as a very small yes vote which technically makes the majority yes may not reach that threshold.\n\nTo handle these cases we provide both a majority and percent option for all percentages. If majority is selected passing will be determined by `yes > total_votes * 0.5`. If percent is selected passing is determined by `yes >= total_votes * percent`.\n\nIn both of these cases a proposal with only abstain votes must fail. This requires a special case passing logic.",
+      "oneOf": [
+        {
+          "description": "The majority of voters must vote yes for the proposal to pass.",
+          "type": "object",
+          "required": [
+            "majority"
+          ],
+          "properties": {
+            "majority": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "A percentage of voting power >= percent must vote yes for the proposal to pass.",
+          "type": "object",
+          "required": [
+            "percent"
+          ],
+          "properties": {
+            "percent": {
+              "$ref": "#/definitions/Decimal"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "StakingMsg": {
       "description": "The message types of the staking module.\n\nSee https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/staking/v1beta1/tx.proto",
       "oneOf": [
@@ -398,95 +529,11 @@
     "Status": {
       "type": "string",
       "enum": [
-        "pending",
         "open",
         "rejected",
         "passed",
-        "executed"
-      ]
-    },
-    "ThresholdResponse": {
-      "description": "This defines the different ways tallies can happen. Every contract should support a subset of these, ideally all.\n\nThe total_weight used for calculating success as well as the weights of each individual voter used in tallying should be snapshotted at the beginning of the block at which the proposal starts (this is likely the responsibility of a correct cw4 implementation).",
-      "oneOf": [
-        {
-          "description": "Declares that a fixed weight of yes votes is needed to pass. It does not matter how many no votes are cast, or how many do not vote, as long as `weight` yes votes are cast.\n\nThis is the simplest format and usually suitable for small multisigs of trusted parties, like 3 of 5. (weight: 3, total_weight: 5)\n\nA proposal of this type can pass early as soon as the needed weight of yes votes has been cast.",
-          "type": "object",
-          "required": [
-            "absolute_count"
-          ],
-          "properties": {
-            "absolute_count": {
-              "type": "object",
-              "required": [
-                "total_weight",
-                "weight"
-              ],
-              "properties": {
-                "total_weight": {
-                  "$ref": "#/definitions/Uint128"
-                },
-                "weight": {
-                  "$ref": "#/definitions/Uint128"
-                }
-              }
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "description": "Declares a percentage of the total weight that must cast Yes votes, in order for a proposal to pass. The passing weight is computed over the total weight minus the weight of the abstained votes.\n\nThis is useful for similar circumstances as `AbsoluteCount`, where we have a relatively small set of voters, and participation is required. It is understood that if the voting set (group) changes between different proposals that refer to the same group, each proposal will work with a different set of voter weights (the ones snapshotted at proposal creation), and the passing weight for each proposal will be computed based on the absolute percentage, times the total weights of the members at the time of each proposal creation.\n\nExample: we set `percentage` to 51%. Proposal 1 starts when there is a `total_weight` of 5. This will require 3 weight of Yes votes in order to pass. Later, the Proposal 2 starts but the `total_weight` of the group has increased to 9. That proposal will then automatically require 5 Yes of 9 to pass, rather than 3 yes of 9 as would be the case with `AbsoluteCount`.",
-          "type": "object",
-          "required": [
-            "absolute_percentage"
-          ],
-          "properties": {
-            "absolute_percentage": {
-              "type": "object",
-              "required": [
-                "percentage",
-                "total_weight"
-              ],
-              "properties": {
-                "percentage": {
-                  "$ref": "#/definitions/Decimal"
-                },
-                "total_weight": {
-                  "$ref": "#/definitions/Uint128"
-                }
-              }
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "description": "In addition to a `threshold`, declares a `quorum` of the total votes that must participate in the election in order for the vote to be considered at all. Within the votes that were cast, it requires `threshold` votes in favor. That is calculated by ignoring the Abstain votes (they count towards `quorum`, but do not influence `threshold`). That is, we calculate `Yes / (Yes + No + Veto)` and compare it with `threshold` to consider if the proposal was passed.\n\nIt is rather difficult for a proposal of this type to pass early. That can only happen if the required quorum has been already met, and there are already enough Yes votes for the proposal to pass.\n\n30% Yes votes, 10% No votes, and 20% Abstain would pass early if quorum <= 60% (who has cast votes) and if the threshold is <= 37.5% (the remaining 40% voting no => 30% yes + 50% no). Once the voting period has passed with no additional votes, that same proposal would be considered successful if quorum <= 60% and threshold <= 75% (percent in favor if we ignore abstain votes).\n\nThis type is more common in general elections, where participation is often expected to be low, and `AbsolutePercentage` would either be too high to pass anything, or allow low percentages to pass, independently of if there was high participation in the election or not.",
-          "type": "object",
-          "required": [
-            "threshold_quorum"
-          ],
-          "properties": {
-            "threshold_quorum": {
-              "type": "object",
-              "required": [
-                "quorum",
-                "threshold",
-                "total_weight"
-              ],
-              "properties": {
-                "quorum": {
-                  "$ref": "#/definitions/Decimal"
-                },
-                "threshold": {
-                  "$ref": "#/definitions/Decimal"
-                },
-                "total_weight": {
-                  "$ref": "#/definitions/Uint128"
-                }
-              }
-            }
-          },
-          "additionalProperties": false
-        }
+        "executed",
+        "closed"
       ]
     },
     "Timestamp": {
@@ -504,6 +551,51 @@
     "Uint64": {
       "description": "A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u64` to get the value out:\n\n``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);\n\nlet b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```",
       "type": "string"
+    },
+    "VotingStrategy": {
+      "description": "Determines the way votes are counted.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "single_choice"
+          ],
+          "properties": {
+            "single_choice": {
+              "type": "object",
+              "required": [
+                "quorum"
+              ],
+              "properties": {
+                "quorum": {
+                  "$ref": "#/definitions/PercentageThreshold"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "ranked_choice"
+          ],
+          "properties": {
+            "ranked_choice": {
+              "type": "object",
+              "required": [
+                "quorum"
+              ],
+              "properties": {
+                "quorum": {
+                  "$ref": "#/definitions/PercentageThreshold"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "WasmMsg": {
       "description": "The message types of the wasm module.\n\nSee https://github.com/CosmWasm/wasmd/blob/v0.14.0/x/wasm/internal/types/tx.proto",
