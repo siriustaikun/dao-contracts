@@ -1,4 +1,4 @@
-use std::{ops::Sub};
+use std::ops::Sub;
 
 use cosmwasm_std::{Addr, BlockInfo, Uint128};
 use cw_utils::Expiration;
@@ -7,11 +7,8 @@ use serde::{Deserialize, Serialize};
 use voting::{
     deposit::CheckedDepositInfo,
     proposal::{Proposal, Status},
-    threshold::{PercentageThreshold},
-    voting::{
-        does_vote_count_fail, does_vote_count_pass,
-        MultipleChoiceVotes,
-    },
+    threshold::PercentageThreshold,
+    voting::{does_vote_count_fail, does_vote_count_pass, MultipleChoiceVotes},
 };
 
 use crate::{
@@ -42,13 +39,13 @@ pub struct MultipleChoiceProposal {
 
 impl Proposal for MultipleChoiceProposal {
     fn proposer(&self) -> Addr {
-        return self.proposer.clone();
+        self.proposer.clone()
     }
     fn deposit_info(&self) -> Option<CheckedDepositInfo> {
-        return self.deposit_info.clone();
+        self.deposit_info.clone()
     }
     fn status(&self) -> Status {
-        return self.status;
+        self.status
     }
 }
 
@@ -108,7 +105,7 @@ impl MultipleChoiceProposal {
             }
         }
 
-        return false;
+        false
     }
 
     pub fn is_rejected(&self, block: &BlockInfo) -> bool {
@@ -132,21 +129,21 @@ impl MultipleChoiceProposal {
                 if let Some(first) = self.votes.vote_weights.first() {
                     return self.votes.vote_weights.iter().all(|x| *x == *first);
                 }
-                return false;
+                false
             }
             // Quorum is met and proposal has not expired OR Quorum is not met and proposal is not expired.
             (true, false) | (false, false) => {
                 // Proposal is rejected if "None" has the majority of the total power because there is no way for
                 // another option to outnumber it.
                 let none_vote_count = Uint128::from(self.get_none_vote_count());
-                return does_vote_count_fail(
+                does_vote_count_fail(
                     none_vote_count,
                     self.total_power,
                     PercentageThreshold::Majority {},
-                );
+                )
             }
             // Quorum is not met and proposal is expired.
-            (false, true) => return true,
+            (false, true) => true,
         }
     }
 
@@ -162,7 +159,7 @@ impl MultipleChoiceProposal {
                     .map(|(idx, _)| idx)
                     .unwrap();
 
-                return (choice_idx, &self.choices[choice_idx]);
+                (choice_idx, &self.choices[choice_idx])
             }
             VotingStrategy::RankedChoice { quorum: _ } => todo!(),
         }

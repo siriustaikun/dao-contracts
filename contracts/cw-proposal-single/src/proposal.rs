@@ -7,9 +7,7 @@ use serde::{Deserialize, Serialize};
 use voting::deposit::CheckedDepositInfo;
 use voting::proposal::{Proposal, Status};
 use voting::threshold::{PercentageThreshold, Threshold};
-use voting::voting::{
-    does_vote_count_fail, does_vote_count_pass, Votes,
-};
+use voting::voting::{does_vote_count_fail, does_vote_count_pass, Votes};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct SingleChoiceProposal {
@@ -35,13 +33,13 @@ pub struct SingleChoiceProposal {
 
 impl Proposal for SingleChoiceProposal {
     fn proposer(&self) -> Addr {
-        return self.proposer.clone();
+        self.proposer.clone()
     }
     fn deposit_info(&self) -> Option<CheckedDepositInfo> {
-        return self.deposit_info.clone();
+        self.deposit_info.clone()
     }
     fn status(&self) -> Status {
-        return self.status;
+        self.status
     }
 }
 

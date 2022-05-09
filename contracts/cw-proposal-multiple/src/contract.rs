@@ -1,11 +1,11 @@
 use cosmwasm_std::{
-    entry_point, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env,
-    MessageInfo, Reply, Response, StdResult, Storage, WasmMsg,
+    entry_point, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response,
+    StdResult, Storage, WasmMsg,
 };
 
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
-use cw_utils::{Duration};
+use cw_utils::Duration;
 use indexable_hooks::Hooks;
 use proposal_hooks::{new_proposal_hooks, proposal_status_changed_hooks};
 
@@ -19,15 +19,12 @@ use voting::{
 use crate::{
     msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
     proposal::MultipleChoiceProposal,
-    query::{
-        ProposalListResponse, ProposalResponse,
-        VoteListResponse, VoteResponse,
-    },
+    query::{ProposalListResponse, ProposalResponse, VoteListResponse, VoteResponse},
     state::{
         Config, MultipleChoiceOption, MultipleChoiceOptionType, CONFIG, PROPOSAL_COUNT,
         PROPOSAL_HOOKS, VOTE_HOOKS,
     },
-    voting_strategy::{VotingStrategy},
+    voting_strategy::VotingStrategy,
     ContractError,
 };
 
@@ -596,7 +593,7 @@ pub fn query_reverse_proposals(
     start_before: Option<u64>,
     limit: Option<u64>,
 ) -> StdResult<Binary> {
-    let limit = limit.unwrap_or(DEFAULT_LIMIT.into());
+    let limit = limit.unwrap_or(DEFAULT_LIMIT);
     let max = start_before.map(Bound::exclusive);
     let props: Vec<ProposalResponse> = PROPOSALS
         .range(deps.storage, None, max, cosmwasm_std::Order::Descending)

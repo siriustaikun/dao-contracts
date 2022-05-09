@@ -1,17 +1,9 @@
-
-
-use cw_utils::{Duration};
+use cw_utils::Duration;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use voting::{
-    deposit::DepositInfo,
-    voting::{MultipleChoiceVote},
-};
+use voting::{deposit::DepositInfo, voting::MultipleChoiceVote};
 
-use crate::{
-    state::{MultipleChoiceOption},
-    voting_strategy::VotingStrategy,
-};
+use crate::{state::MultipleChoiceOption, voting_strategy::VotingStrategy};
 use cw_core_macros::govmod_query;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
