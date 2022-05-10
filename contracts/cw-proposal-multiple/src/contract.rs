@@ -122,21 +122,14 @@ pub fn execute_propose(
     let config = CONFIG.load(deps.storage)?;
 
     // Check that the sender is a member of the governance contract.
-    let sender_power = get_voting_power(
-        deps.as_ref(),
-        sender.clone(),
-        config.dao.clone(),
-        Some(env.block.height),
-    )?;
+    let sender_power = get_voting_power(deps.as_ref(), sender.clone(), config.dao.clone(), None)?;
     if sender_power.is_zero() {
         return Err(ContractError::Unauthorized {});
     }
 
-    // Set the expiration to the minimum of the proposal's `latest`
-    // argument and the configured max voting period.
     let expiration = config.max_voting_period.after(&env.block);
 
-    let total_power = get_total_power(deps.as_ref(), config.dao, Some(env.block.height))?;
+    let total_power = get_total_power(deps.as_ref(), config.dao, None)?;
 
     let proposal = {
         // Limit mutability to this block.

@@ -113,7 +113,9 @@ pub fn get_return_deposit_msg<T: Proposal>(proposal: &T) -> StdResult<Vec<Cosmos
             // If it is closed only issue a refund if we are refunding
             // failed proposals. Otherwise, the proposal is open and
             // expired.
-            if proposal.status() == Status::Rejected && !info.refund_failed_proposals {
+            if proposal.status() == Status::Rejected && !info.refund_failed_proposals
+                || info.deposit.is_zero()
+            {
                 return Ok(vec![]);
             }
 

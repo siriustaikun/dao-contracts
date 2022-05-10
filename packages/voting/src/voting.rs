@@ -32,7 +32,7 @@ pub enum Vote {
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, JsonSchema, Debug)]
 pub struct MultipleChoiceVote {
     // A vote indicates which option the user has selected.
-    pub option_id: u32,
+    pub option_id: u64,
 }
 
 impl std::fmt::Display for MultipleChoiceVote {
@@ -215,6 +215,7 @@ impl std::fmt::Display for Vote {
     }
 }
 
+/// A height of None will query for the current block height.
 pub fn get_voting_power(
     deps: Deps,
     address: Addr,
@@ -231,6 +232,7 @@ pub fn get_voting_power(
     Ok(response.power)
 }
 
+/// A height of None will query for the current block height.
 pub fn get_total_power(deps: Deps, dao: Addr, height: Option<u64>) -> StdResult<Uint128> {
     let response: voting::TotalPowerAtHeightResponse = deps
         .querier

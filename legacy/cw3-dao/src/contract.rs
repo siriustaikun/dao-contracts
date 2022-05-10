@@ -217,6 +217,14 @@ pub fn execute_propose(
     // we ignore earliest
     latest: Option<Expiration>,
 ) -> Result<Response<Empty>, ContractError> {
+    // Check if DAO is Paused
+    let paused = DAO_PAUSED.may_load(deps.storage)?;
+    if let Some(expiration) = paused {
+        if !expiration.is_expired(&env.block) {
+            return Err(ContractError::Paused {});
+        }
+    }
+
     let cfg = CONFIG.load(deps.storage)?;
     let gov_token = GOV_TOKEN.load(deps.storage)?;
 
@@ -279,6 +287,14 @@ pub fn execute_vote(
     proposal_id: u64,
     vote: Vote,
 ) -> Result<Response<Empty>, ContractError> {
+    // Check if DAO is Paused
+    let paused = DAO_PAUSED.may_load(deps.storage)?;
+    if let Some(expiration) = paused {
+        if !expiration.is_expired(&env.block) {
+            return Err(ContractError::Paused {});
+        }
+    }
+
     // Ensure proposal exists and can be voted on
     let mut prop = PROPOSALS.load(deps.storage, proposal_id)?;
     if prop.status != Status::Open {
@@ -323,6 +339,14 @@ pub fn execute_execute(
     info: MessageInfo,
     proposal_id: u64,
 ) -> Result<Response, ContractError> {
+    // Check if DAO is Paused
+    let paused = DAO_PAUSED.may_load(deps.storage)?;
+    if let Some(expiration) = paused {
+        if !expiration.is_expired(&env.block) {
+            return Err(ContractError::Paused {});
+        }
+    }
+
     let cfg = CONFIG.load(deps.storage)?;
     if cfg.only_members_execute {
         let balance = get_staked_balance(deps.as_ref(), info.sender.clone())?;
@@ -363,6 +387,14 @@ pub fn execute_close(
     info: MessageInfo,
     proposal_id: u64,
 ) -> Result<Response<Empty>, ContractError> {
+    // Check if DAO is Paused
+    let paused = DAO_PAUSED.may_load(deps.storage)?;
+    if let Some(expiration) = paused {
+        if !expiration.is_expired(&env.block) {
+            return Err(ContractError::Paused {});
+        }
+    }
+
     let gov_token = GOV_TOKEN.load(deps.storage)?;
 
     // Anyone can trigger this if the vote passed

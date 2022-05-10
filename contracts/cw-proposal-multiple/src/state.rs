@@ -56,15 +56,6 @@ pub struct MultipleChoiceOption {
     pub vote_count: Uint128,
 }
 
-pub fn parse_id(data: &[u8]) -> StdResult<u64> {
-    match data[0..8].try_into() {
-        Ok(bytes) => Ok(u64::from_be_bytes(bytes)),
-        Err(_) => Err(StdError::generic_err(
-            "Corrupted data found. 8 byte expected.",
-        )),
-    }
-}
-
 // we cast a ballot with our chosen vote and a given weight
 // stored under the key that voted
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
