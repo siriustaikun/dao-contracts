@@ -50,6 +50,8 @@ pub enum MultipleChoiceOptionType {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct MultipleChoiceOption {
+    // Index of option in vote_weights.
+    pub index: u32,
     pub option_type: MultipleChoiceOptionType,
     pub description: String,
     pub msgs: Vec<CosmosMsg<Empty>>,

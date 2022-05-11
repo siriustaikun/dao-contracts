@@ -40,7 +40,7 @@ pub enum ContractError {
     #[error("Already voted")]
     AlreadyVoted {},
 
-    #[error("Proposal is not passed.")]
+    #[error("Proposal must be in 'passed' state to be executed.")]
     NotPassed {},
 
     #[error("Proposal is not expired.")]
@@ -55,6 +55,9 @@ pub enum ContractError {
     #[error("Must have at least three choices, one of them being none of the above.")]
     WrongNumberOfChoices {},
 
-    #[error("Must have one 'none of the above' option.")]
-    NoneOptionRequired {},
+    #[error("Must have exactly one 'none of the above' option.")]
+    NoneOption {},
+
+    #[error("No vote weights found.")]
+    NoVoteWeights {},
 }

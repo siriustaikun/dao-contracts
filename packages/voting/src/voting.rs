@@ -32,7 +32,7 @@ pub enum Vote {
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, JsonSchema, Debug)]
 pub struct MultipleChoiceVote {
     // A vote indicates which option the user has selected.
-    pub option_id: u64,
+    pub option_id: u32,
 }
 
 impl std::fmt::Display for MultipleChoiceVote {

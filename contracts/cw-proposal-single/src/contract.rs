@@ -338,6 +338,9 @@ pub fn execute_close(
 ) -> Result<Response, ContractError> {
     let mut prop = PROPOSALS.load(deps.storage, proposal_id)?;
 
+    // Update status to ensure that proposals which have met passing criteria after expiration are updated.
+    prop.update_status(&env.block);
+
     // Only open and expired or rejected proposals may be closed.
     match prop.status {
         Status::Rejected => (),

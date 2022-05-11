@@ -1,6 +1,4 @@
-use std::ops::Sub;
-
-use cosmwasm_std::{Addr, BlockInfo, Uint128};
+use cosmwasm_std::{Addr, BlockInfo, StdError, StdResult, Uint128};
 use cw_utils::Expiration;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -8,7 +6,7 @@ use voting::{
     deposit::CheckedDepositInfo,
     proposal::{Proposal, Status},
     threshold::PercentageThreshold,
-    voting::{does_vote_count_fail, does_vote_count_pass, MultipleChoiceVotes},
+    voting::{does_vote_count_pass, MultipleChoiceVotes},
 };
 
 use crate::{
@@ -37,6 +35,11 @@ pub struct MultipleChoiceProposal {
     pub deposit_info: Option<CheckedDepositInfo>,
 }
 
+pub enum VoteResult {
+    SingleWinner(MultipleChoiceOption),
+    Tie,
+}
+
 impl Proposal for MultipleChoiceProposal {
     fn proposer(&self) -> Addr {
         self.proposer.clone()
@@ -57,58 +60,84 @@ impl MultipleChoiceProposal {
     /// the proposal expiring has changed its status. This method
     /// recomputes the status so that queries get accurate
     /// information.
-    pub fn into_response(mut self, block: &BlockInfo, id: u64) -> ProposalResponse {
-        self.update_status(block);
-        ProposalResponse { id, proposal: self }
+    pub fn into_response(mut self, block: &BlockInfo, id: u64) -> StdResult<ProposalResponse> {
+        self.update_status(block)?;
+        Ok(ProposalResponse { id, proposal: self })
     }
 
     /// Gets the current status of the proposal.
-    pub fn current_status(&self, block: &BlockInfo) -> Status {
-        if self.status == Status::Open && self.is_passed() {
-            Status::Passed
+    pub fn current_status(&self, block: &BlockInfo) -> StdResult<Status> {
+        if self.status == Status::Open && self.is_passed(block)? {
+            Ok(Status::Passed)
         } else if self.status == Status::Open
-            && (self.expiration.is_expired(block) || self.is_rejected(block))
+            && (self.expiration.is_expired(block) || self.is_rejected(block)?)
         {
-            Status::Rejected
+            Ok(Status::Rejected)
         } else {
-            self.status
+            Ok(self.status)
         }
     }
 
     /// Sets a proposals status to its current status.
-    pub fn update_status(&mut self, block: &BlockInfo) {
-        self.status = self.current_status(block);
+    pub fn update_status(&mut self, block: &BlockInfo) -> StdResult<()> {
+        self.status = self.current_status(block)?;
+        Ok(())
     }
 
     /// Returns true iff this proposal is sure to pass (even before
     /// expiration if no future sequence of possible votes can cause
     /// it to fail). Passing in the case of multiple choice proposals
-    /// means that one of the options that is not "None of the above" has won the most votes.
-    pub fn is_passed(&self) -> bool {
+    /// means that one of the options that is not "None of the above"
+    /// has won the most votes, and there is no tie.
+    pub fn is_passed(&self, block: &BlockInfo) -> StdResult<bool> {
         // Proposal can only pass if quorum has been met.
         if does_vote_count_pass(
             self.votes.total(),
             self.total_power,
             self.voting_strategy.get_quorum(),
         ) {
-            let (choice_idx, winning_choice) = self.calculate_winning_choice();
-            // Check that the winning choice is not None.
-            if winning_choice.option_type != MultipleChoiceOptionType::None {
-                // If the leading choice cannot possibly be outwon by the "None" option, the proposal has passed.
-                // This means that the difference between them must be greater than the remaining vote power.
-                let none_count = u128::from(self.get_none_vote_count());
-                let winning_choice_count = self.votes.vote_weights[choice_idx].u128();
-                let remaining_power = self.total_power.sub(self.votes.total()).u128();
-                if winning_choice_count - none_count > remaining_power {
-                    return true;
+            let vote_result = self.calculate_vote_result()?;
+            match vote_result {
+                // Proposal is not passed if there is a tie.
+                VoteResult::Tie => return Ok(false),
+                VoteResult::SingleWinner(winning_choice) => {
+                    // Proposal is not passed if winning choice is None.
+                    if winning_choice.option_type != MultipleChoiceOptionType::None {
+                        // If proposal is expired and winning choice is neither tied nor None, then proposal is passed.
+                        if self.expiration.is_expired(block) {
+                            return Ok(true);
+                        } else {
+                            // If the proposal is not expired but the leading choice cannot
+                            // possibly be outwon by any other choices, the proposal is passed.
+                            let winning_choice_power =
+                                self.votes.vote_weights[winning_choice.index as usize];
+                            if let Some(second_choice_power) = self
+                                .votes
+                                .vote_weights
+                                .iter()
+                                .filter(|&x| x < &winning_choice_power)
+                                .max_by(|&a, &b| a.cmp(b))
+                            {
+                                let remaining_vote_power = self.total_power - self.votes.total();
+                                if winning_choice_power - remaining_vote_power
+                                    > *second_choice_power
+                                {
+                                    return Ok(true);
+                                }
+                            } else {
+                                return Err(StdError::not_found("second highest vote weight"));
+                            }
+                        }
+                    }
                 }
             }
         }
-
-        false
+        Ok(false)
     }
 
-    pub fn is_rejected(&self, block: &BlockInfo) -> bool {
+    pub fn is_rejected(&self, block: &BlockInfo) -> StdResult<bool> {
+        let vote_result = self.calculate_vote_result()?;
+
         match (
             does_vote_count_pass(
                 self.votes.total(),
@@ -119,59 +148,75 @@ impl MultipleChoiceProposal {
         ) {
             // Quorum is met and proposal is expired.
             (true, true) => {
-                // Proposal is rejected if "None" is the winning option.
-                let (_, winning_choice) = self.calculate_winning_choice();
-                if winning_choice.option_type == MultipleChoiceOptionType::None {
-                    return true;
+                match vote_result {
+                    // Proposal is rejected if there is a tie.
+                    VoteResult::Tie => return Ok(true),
+                    VoteResult::SingleWinner(winning_choice) => {
+                        // Proposal is rejected if "None" is the winning option.
+                        if winning_choice.option_type == MultipleChoiceOptionType::None {
+                            return Ok(true);
+                        }
+                    }
                 }
 
-                // Proposal is rejected if all of the options are tied.
-                if let Some(first) = self.votes.vote_weights.first() {
-                    return self.votes.vote_weights.iter().all(|x| *x == *first);
-                }
-                false
+                Ok(false)
             }
-            // Quorum is met and proposal has not expired OR Quorum is not met and proposal is not expired.
+            // Proposal is not expired, quorum is either is met or unmet.
             (true, false) | (false, false) => {
                 // Proposal is rejected if "None" has the majority of the total power because there is no way for
                 // another option to outnumber it.
-                let none_vote_count = Uint128::from(self.get_none_vote_count());
-                does_vote_count_fail(
-                    none_vote_count,
+                let none_vote_power = self.get_none_vote_power()?;
+                Ok(does_vote_count_pass(
+                    none_vote_power,
                     self.total_power,
                     PercentageThreshold::Majority {},
-                )
+                ))
             }
             // Quorum is not met and proposal is expired.
-            (false, true) => true,
+            (false, true) => Ok(true),
         }
     }
 
-    pub fn calculate_winning_choice(&self) -> (usize, &MultipleChoiceOption) {
+    pub fn calculate_vote_result(&self) -> StdResult<VoteResult> {
         match self.voting_strategy {
             VotingStrategy::SingleChoice { quorum: _ } => {
-                let choice_idx = self
-                    .votes
-                    .vote_weights
-                    .iter()
-                    .enumerate()
-                    .max_by(|a, b| a.cmp(b))
-                    .map(|(idx, _)| idx)
-                    .unwrap();
+                // We expect to have at least 3 vote weights
+                if let Some(max_weight) = self.votes.vote_weights.iter().max_by(|&a, &b| a.cmp(b)) {
+                    let top_choices: Vec<(usize, &Uint128)> = self
+                        .votes
+                        .vote_weights
+                        .iter()
+                        .enumerate()
+                        .filter(|x| x.1 == max_weight)
+                        .collect();
 
-                (choice_idx, &self.choices[choice_idx])
+                    // If more than one choice has the highest number of votes, we have a tie.
+                    if top_choices.len() > 1 {
+                        return Ok(VoteResult::Tie);
+                    }
+
+                    let winning_choice = top_choices.first().unwrap();
+                    return Ok(VoteResult::SingleWinner(
+                        self.choices[winning_choice.0].clone(),
+                    ));
+                }
+                Err(StdError::not_found("max vote weight"))
             }
+
             VotingStrategy::RankedChoice { quorum: _ } => todo!(),
         }
     }
 
-    pub fn get_none_vote_count(&self) -> u64 {
-        return self
-            .votes
-            .vote_weights
+    pub fn get_none_vote_power(&self) -> StdResult<Uint128> {
+        if let Some(&none_option) = self
+            .choices
             .iter()
-            .enumerate()
-            .filter(|(idx, _x)| self.choices[*idx].option_type == MultipleChoiceOptionType::None)
-            .count() as u64;
+            .filter(|&c| c.option_type == MultipleChoiceOptionType::None)
+            .collect::<Vec<&MultipleChoiceOption>>()
+            .first()
+        {
+            return Ok(self.votes.vote_weights[none_option.index as usize]);
+        }
+        Err(StdError::not_found("vote power for 'none' option"))
     }
 }

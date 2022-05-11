@@ -1,3 +1,5 @@
+use std::ops::Mul;
+
 use cosmwasm_std::{
     entry_point, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response,
     StdResult, Storage, WasmMsg,
@@ -18,7 +20,7 @@ use voting::{
 
 use crate::{
     msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
-    proposal::MultipleChoiceProposal,
+    proposal::{MultipleChoiceProposal, VoteResult},
     query::{ProposalListResponse, ProposalResponse, VoteListResponse, VoteResponse},
     state::{
         Config, MultipleChoiceOption, MultipleChoiceOptionType, CONFIG, PROPOSAL_COUNT,
@@ -117,8 +119,6 @@ pub fn execute_propose(
     description: String,
     choices: Vec<MultipleChoiceOption>,
 ) -> Result<Response<Empty>, ContractError> {
-    validate_choices(&choices)?;
-
     let config = CONFIG.load(deps.storage)?;
 
     // Check that the sender is a member of the governance contract.
@@ -126,6 +126,8 @@ pub fn execute_propose(
     if sender_power.is_zero() {
         return Err(ContractError::Unauthorized {});
     }
+
+    validate_choices(&choices)?;
 
     let expiration = config.max_voting_period.after(&env.block);
 
@@ -148,7 +150,7 @@ pub fn execute_propose(
         };
         // Update the proposal's status. Addresses case where proposal
         // expires on the same block as it is created.
-        proposal.update_status(&env.block);
+        proposal.update_status(&env.block)?;
         proposal
     };
     let id = advance_proposal_id(deps.storage)?;
@@ -199,7 +201,7 @@ pub fn execute_vote(
     let mut prop = PROPOSALS
         .may_load(deps.storage, proposal_id)?
         .ok_or(ContractError::NoSuchProposal { id: proposal_id })?;
-    if prop.current_status(&env.block) != Status::Open {
+    if prop.current_status(&env.block)? != Status::Open {
         return Err(ContractError::NotOpen { id: proposal_id });
     }
 
@@ -227,7 +229,7 @@ pub fn execute_vote(
 
     let old_status = prop.status;
     prop.votes.add_vote(vote, vote_power);
-    prop.update_status(&env.block);
+    prop.update_status(&env.block)?;
     PROPOSALS.save(deps.storage, proposal_id, &prop)?;
     let new_status = prop.status;
     let change_hooks = proposal_status_changed_hooks(
@@ -280,43 +282,51 @@ pub fn execute_execute(
     // Check here that the proposal is passed. Allow it to be
     // executed even if it is expired so long as it passed during its
     // voting period.
+    prop.update_status(&env.block)?;
     let old_status = prop.status;
-    if !prop.is_passed() {
+    if prop.status != Status::Passed {
         return Err(ContractError::NotPassed {});
     }
+
     prop.status = Status::Executed;
     PROPOSALS.save(deps.storage, proposal_id, &prop)?;
 
     let return_deposit = get_return_deposit_msg(&prop)?;
-    let (_, winning_choice) = prop.calculate_winning_choice();
+    let vote_result = prop.calculate_vote_result()?;
+    match vote_result {
+        VoteResult::Tie => {
+            return Err(ContractError::NotPassed {});
+        }
+        VoteResult::SingleWinner(winning_choice) => {
+            let response = if !winning_choice.msgs.is_empty() {
+                let execute_message = WasmMsg::Execute {
+                    contract_addr: config.dao.to_string(),
+                    msg: to_binary(&cw_core::msg::ExecuteMsg::ExecuteProposalHook {
+                        msgs: winning_choice.msgs,
+                    })?,
+                    funds: vec![],
+                };
+                Response::<Empty>::default().add_message(execute_message)
+            } else {
+                Response::default()
+            };
 
-    let response = if !winning_choice.msgs.is_empty() {
-        let execute_message = WasmMsg::Execute {
-            contract_addr: config.dao.to_string(),
-            msg: to_binary(&cw_core::msg::ExecuteMsg::ExecuteProposalHook {
-                msgs: winning_choice.msgs.clone(),
-            })?,
-            funds: vec![],
-        };
-        Response::<Empty>::default().add_message(execute_message)
-    } else {
-        Response::default()
-    };
-
-    let hooks = proposal_status_changed_hooks(
-        PROPOSAL_HOOKS,
-        deps.storage,
-        proposal_id,
-        old_status.to_string(),
-        prop.status.to_string(),
-    )?;
-    Ok(response
-        .add_messages(return_deposit)
-        .add_submessages(hooks)
-        .add_attribute("action", "execute")
-        .add_attribute("sender", info.sender)
-        .add_attribute("proposal_id", proposal_id.to_string())
-        .add_attribute("dao", config.dao))
+            let hooks = proposal_status_changed_hooks(
+                PROPOSAL_HOOKS,
+                deps.storage,
+                proposal_id,
+                old_status.to_string(),
+                prop.status.to_string(),
+            )?;
+            Ok(response
+                .add_messages(return_deposit)
+                .add_submessages(hooks)
+                .add_attribute("action", "execute")
+                .add_attribute("sender", info.sender)
+                .add_attribute("proposal_id", proposal_id.to_string())
+                .add_attribute("dao", config.dao))
+        }
+    }
 }
 
 pub fn execute_close(
@@ -509,18 +519,19 @@ pub fn advance_proposal_id(store: &mut dyn Storage) -> StdResult<u64> {
     Ok(id)
 }
 
-fn validate_choices(choices: &Vec<MultipleChoiceOption>) -> Result<(), ContractError> {
+fn validate_choices(choices: &[MultipleChoiceOption]) -> Result<(), ContractError> {
     if choices.len() < 3 {
         return Err(ContractError::WrongNumberOfChoices {});
     }
 
-    let none_count = choices
+    let none_options: Vec<&MultipleChoiceOption> = choices
         .iter()
-        .filter(|x| x.option_type == MultipleChoiceOptionType::None)
-        .count();
+        .filter(|&c| c.option_type == MultipleChoiceOptionType::None)
+        .collect();
 
-    if none_count != 1 {
-        return Err(ContractError::NoneOptionRequired {});
+    // We expect exactly one "None" option.
+    if none_options.len() != 1 {
+        return Err(ContractError::NoneOption {});
     }
 
     Ok(())
@@ -558,7 +569,7 @@ pub fn query_config(deps: Deps) -> StdResult<Binary> {
 
 pub fn query_proposal(deps: Deps, env: Env, id: u64) -> StdResult<Binary> {
     let proposal = PROPOSALS.load(deps.storage, id)?;
-    to_binary(&proposal.into_response(&env.block, id))
+    to_binary(&proposal.into_response(&env.block, id)?)
 }
 
 pub fn query_list_proposals(
@@ -575,7 +586,7 @@ pub fn query_list_proposals(
         .collect::<Result<Vec<(u64, MultipleChoiceProposal)>, _>>()?
         .into_iter()
         .map(|(id, proposal)| proposal.into_response(&env.block, id))
-        .collect();
+        .collect::<StdResult<Vec<ProposalResponse>>>()?;
 
     to_binary(&ProposalListResponse { proposals: props })
 }
@@ -594,7 +605,7 @@ pub fn query_reverse_proposals(
         .collect::<Result<Vec<(u64, MultipleChoiceProposal)>, _>>()?
         .into_iter()
         .map(|(id, proposal)| proposal.into_response(&env.block, id))
-        .collect();
+        .collect::<StdResult<Vec<ProposalResponse>>>()?;
 
     to_binary(&ProposalListResponse { proposals: props })
 }
