@@ -292,9 +292,7 @@ pub fn execute_execute(
     let return_deposit = get_return_deposit_msg(&prop)?;
     let vote_result = prop.calculate_vote_result()?;
     match vote_result {
-        VoteResult::Tie => {
-            return Err(ContractError::NotPassed {});
-        }
+        VoteResult::Tie => Err(ContractError::NotPassed {}),
         VoteResult::SingleWinner(winning_choice) => {
             let response = if !winning_choice.msgs.is_empty() {
                 let execute_message = WasmMsg::Execute {
@@ -522,13 +520,12 @@ fn validate_choices(choices: &[MultipleChoiceOption]) -> Result<(), ContractErro
         return Err(ContractError::WrongNumberOfChoices {});
     }
 
-    let none_options: Vec<&MultipleChoiceOption> = choices
+    let none_options = choices
         .iter()
-        .filter(|&c| c.option_type == MultipleChoiceOptionType::None)
-        .collect();
+        .filter(|&c| c.option_type == MultipleChoiceOptionType::None);
 
     // We expect exactly one "None" option.
-    if none_options.len() != 1 {
+    if none_options.count() != 1 {
         return Err(ContractError::NoneOption {});
     }
 

@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use voting::{
     deposit::CheckedDepositInfo,
     proposal::{Proposal, Status},
-    threshold::PercentageThreshold,
     voting::{does_vote_count_pass, MultipleChoiceVotes},
 };
 
@@ -122,7 +121,7 @@ impl MultipleChoiceProposal {
         let vote_result = self.calculate_vote_result()?;
         match vote_result {
             // Proposal is rejected if there is a tie.
-            VoteResult::Tie => return Ok(true),
+            VoteResult::Tie => Ok(true),
             VoteResult::SingleWinner(winning_choice) => {
                 match (
                     does_vote_count_pass(
@@ -138,7 +137,7 @@ impl MultipleChoiceProposal {
                         if winning_choice.option_type == MultipleChoiceOptionType::None {
                             return Ok(true);
                         }
-                        return Ok(false);
+                        Ok(false)
                     }
                     // Proposal is not expired, quorum is either is met or unmet.
                     (true, false) | (false, false) => {
@@ -147,10 +146,10 @@ impl MultipleChoiceProposal {
                         if winning_choice.option_type == MultipleChoiceOptionType::None {
                             return self.is_choice_unbeatable(&winning_choice);
                         }
-                        return Ok(false);
+                        Ok(false)
                     }
                     // Quorum is not met and proposal is expired.
-                    (false, true) => return Ok(true),
+                    (false, true) => Ok(true),
                 }
             }
         }
@@ -184,19 +183,6 @@ impl MultipleChoiceProposal {
 
             VotingStrategy::RankedChoice { quorum: _ } => todo!(),
         }
-    }
-
-    fn get_none_vote_power(&self) -> StdResult<Uint128> {
-        if let Some(&none_option) = self
-            .choices
-            .iter()
-            .filter(|&c| c.option_type == MultipleChoiceOptionType::None)
-            .collect::<Vec<&MultipleChoiceOption>>()
-            .first()
-        {
-            return Ok(self.votes.vote_weights[none_option.index as usize]);
-        }
-        Err(StdError::not_found("vote power for 'none' option"))
     }
 
     fn is_choice_unbeatable(&self, winning_choice: &MultipleChoiceOption) -> StdResult<bool> {
