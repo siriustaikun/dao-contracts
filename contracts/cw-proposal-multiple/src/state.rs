@@ -1,7 +1,5 @@
-use std::convert::TryInto;
-
 use crate::{proposal::MultipleChoiceProposal, voting_strategy::VotingStrategy};
-use cosmwasm_std::{Addr, CosmosMsg, Empty, StdError, StdResult, Storage, Uint128};
+use cosmwasm_std::{Addr, CosmosMsg, Empty, StdResult, Storage, Uint128};
 use cw_storage_plus::{Item, Map};
 use cw_utils::Duration;
 use indexable_hooks::Hooks;
@@ -50,7 +48,9 @@ pub enum MultipleChoiceOptionType {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct MultipleChoiceOption {
-    // Index of option in vote_weights.
+    // It is expected from the API caller and will be validated that this is the index
+    // of the option in both the vote_weights and proposal.choices vectors.
+    // Due to the circumstance of not being able to use HashMaps in cosmwasm.
     pub index: u32,
     pub option_type: MultipleChoiceOptionType,
     pub description: String,

@@ -103,30 +103,13 @@ impl MultipleChoiceProposal {
                 VoteResult::SingleWinner(winning_choice) => {
                     // Proposal is not passed if winning choice is None.
                     if winning_choice.option_type != MultipleChoiceOptionType::None {
-                        // If proposal is expired and winning choice is neither tied nor None, then proposal is passed.
+                        // If proposal is expired, quorum has been reached, and winning choice is neither tied nor None, then proposal is passed.
                         if self.expiration.is_expired(block) {
                             return Ok(true);
                         } else {
                             // If the proposal is not expired but the leading choice cannot
-                            // possibly be outwon by any other choices, the proposal is passed.
-                            let winning_choice_power =
-                                self.votes.vote_weights[winning_choice.index as usize];
-                            if let Some(second_choice_power) = self
-                                .votes
-                                .vote_weights
-                                .iter()
-                                .filter(|&x| x < &winning_choice_power)
-                                .max_by(|&a, &b| a.cmp(b))
-                            {
-                                let remaining_vote_power = self.total_power - self.votes.total();
-                                if winning_choice_power - remaining_vote_power
-                                    > *second_choice_power
-                                {
-                                    return Ok(true);
-                                }
-                            } else {
-                                return Err(StdError::not_found("second highest vote weight"));
-                            }
+                            // possibly be outwon by any other choices, the proposal has passed.
+                            return self.is_choice_unbeatable(&winning_choice);
                         }
                     }
                 }
@@ -137,43 +120,39 @@ impl MultipleChoiceProposal {
 
     pub fn is_rejected(&self, block: &BlockInfo) -> StdResult<bool> {
         let vote_result = self.calculate_vote_result()?;
-
-        match (
-            does_vote_count_pass(
-                self.votes.total(),
-                self.total_power,
-                self.voting_strategy.get_quorum(),
-            ),
-            self.expiration.is_expired(block),
-        ) {
-            // Quorum is met and proposal is expired.
-            (true, true) => {
-                match vote_result {
-                    // Proposal is rejected if there is a tie.
-                    VoteResult::Tie => return Ok(true),
-                    VoteResult::SingleWinner(winning_choice) => {
+        match vote_result {
+            // Proposal is rejected if there is a tie.
+            VoteResult::Tie => return Ok(true),
+            VoteResult::SingleWinner(winning_choice) => {
+                match (
+                    does_vote_count_pass(
+                        self.votes.total(),
+                        self.total_power,
+                        self.voting_strategy.get_quorum(),
+                    ),
+                    self.expiration.is_expired(block),
+                ) {
+                    // Quorum is met and proposal is expired.
+                    (true, true) => {
                         // Proposal is rejected if "None" is the winning option.
                         if winning_choice.option_type == MultipleChoiceOptionType::None {
                             return Ok(true);
                         }
+                        return Ok(false);
                     }
+                    // Proposal is not expired, quorum is either is met or unmet.
+                    (true, false) | (false, false) => {
+                        // If the proposal is not expired and the leading choice is None and it cannot
+                        // possibly be outwon by any other choices, the proposal has passed.
+                        if winning_choice.option_type == MultipleChoiceOptionType::None {
+                            return self.is_choice_unbeatable(&winning_choice);
+                        }
+                        return Ok(false);
+                    }
+                    // Quorum is not met and proposal is expired.
+                    (false, true) => return Ok(true),
                 }
-
-                Ok(false)
             }
-            // Proposal is not expired, quorum is either is met or unmet.
-            (true, false) | (false, false) => {
-                // Proposal is rejected if "None" has the majority of the total power because there is no way for
-                // another option to outnumber it.
-                let none_vote_power = self.get_none_vote_power()?;
-                Ok(does_vote_count_pass(
-                    none_vote_power,
-                    self.total_power,
-                    PercentageThreshold::Majority {},
-                ))
-            }
-            // Quorum is not met and proposal is expired.
-            (false, true) => Ok(true),
         }
     }
 
@@ -207,7 +186,7 @@ impl MultipleChoiceProposal {
         }
     }
 
-    pub fn get_none_vote_power(&self) -> StdResult<Uint128> {
+    fn get_none_vote_power(&self) -> StdResult<Uint128> {
         if let Some(&none_option) = self
             .choices
             .iter()
@@ -218,5 +197,25 @@ impl MultipleChoiceProposal {
             return Ok(self.votes.vote_weights[none_option.index as usize]);
         }
         Err(StdError::not_found("vote power for 'none' option"))
+    }
+
+    fn is_choice_unbeatable(&self, winning_choice: &MultipleChoiceOption) -> StdResult<bool> {
+        let winning_choice_power = self.votes.vote_weights[winning_choice.index as usize];
+        if let Some(second_choice_power) = self
+            .votes
+            .vote_weights
+            .iter()
+            .filter(|&x| x < &winning_choice_power)
+            .max_by(|&a, &b| a.cmp(b))
+        {
+            // Check if the remaining vote power can be used to overtake the current winning choice.
+            let remaining_vote_power = self.total_power - self.votes.total();
+            if winning_choice_power - remaining_vote_power > *second_choice_power {
+                return Ok(true);
+            }
+        } else {
+            return Err(StdError::not_found("second highest vote weight"));
+        }
+        Ok(false)
     }
 }

@@ -1,5 +1,3 @@
-use std::ops::Mul;
-
 use cosmwasm_std::{
     entry_point, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response,
     StdResult, Storage, WasmMsg,
