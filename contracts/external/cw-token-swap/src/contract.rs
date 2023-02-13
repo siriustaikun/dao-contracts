@@ -112,13 +112,21 @@ fn do_fund(
     storage.save(deps.storage, &counterparty)?;
 
     let messages = if counterparty.provided && other_counterparty.provided {
+        let counterparty_send_msg = match counterparty.send_msg {
+            Some(msg) => msg,
+            None => counterparty
+            .promise
+            .into_send_message(&other_counterparty.address)?,
+        };
+        let other_counterparty_send_msg = match other_counterparty.send_msg {
+            Some(msg) => msg,
+            None => other_counterparty
+            .promise
+            .into_send_message(&counterparty.address)?
+        };
         vec![
-            counterparty
-                .promise
-                .into_send_message(&other_counterparty.address)?,
-            other_counterparty
-                .promise
-                .into_send_message(&counterparty.address)?,
+            counterparty_send_msg,
+            other_counterparty_send_msg
         ]
     } else {
         vec![]

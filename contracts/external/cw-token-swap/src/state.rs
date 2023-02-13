@@ -24,6 +24,7 @@ pub struct CheckedCounterparty {
     pub address: Addr,
     pub promise: CheckedTokenInfo,
     pub provided: bool,
+    pub send_msg: Option<CosmosMsg>
 }
 
 pub const COUNTERPARTY_ONE: Item<CheckedCounterparty> = Item::new("counterparty_one");
@@ -35,6 +36,7 @@ impl Counterparty {
             address: deps.api.addr_validate(&self.address)?,
             provided: false,
             promise: self.promise.into_checked(deps)?,
+            send_msg: self.send_msg
         })
     }
 }

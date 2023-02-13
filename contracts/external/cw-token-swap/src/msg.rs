@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Uint128;
+use cosmwasm_std::{Uint128, CosmosMsg};
 
 use crate::state::CheckedCounterparty;
 
@@ -23,6 +23,8 @@ pub struct Counterparty {
     pub address: String,
     /// The funds they have promised to provide.
     pub promise: TokenInfo,
+    // The custom message to execute when transferring the funds
+    pub send_msg: Option<CosmosMsg>
 }
 
 #[cw_serde]
